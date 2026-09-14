@@ -23,7 +23,7 @@ import { Elevation, Radius, Spacing } from "@/constants/Theme";
 import { Typography } from "@/constants/Typography";
 
 // Nested routes that take over the whole screen, so the floating bar hides.
-const FULLSCREEN_ROUTES = ["create", "create-spot", "label", "[spotid]"];
+const FULLSCREEN_ROUTES = ["create", "edit", "create-spot", "label", "[spotid]"];
 
 type TabSlot = {
   // Route base segment, e.g. "cities" — also matches "cities/index".

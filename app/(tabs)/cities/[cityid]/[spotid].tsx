@@ -10,7 +10,7 @@ import { Radius, Spacing } from "@/constants/Theme";
 import { FontFamily, Typography } from "@/constants/Typography";
 import { useCreateTag } from "@/hooks/useCreateTag";
 import { useSpot } from "@/hooks/useSpot";
-import { spotSchema, SpotFormValues } from "@/lib/schemas/spot";
+import { SpotFormValues, spotSchema } from "@/lib/schemas/spot";
 import {
   deletePhotosFromStorage,
   uploadPhotoFromUri,
@@ -64,10 +64,6 @@ export default function SpotDetailScreen() {
   const theme = isDark ? Colors.dark : Colors.light;
   const insets = useSafeAreaInsets();
   const tabBarPadding = useBottomTabOverflow();
-  const editContentStyle = [
-    styles.editContent,
-    { paddingBottom: 24 + tabBarPadding },
-  ];
 
   const [isEditing, setIsEditing] = useState(false);
   const [tagLabels, setTagLabels] = useState<string[]>([]);
@@ -78,7 +74,7 @@ export default function SpotDetailScreen() {
   const [initialTagLabels, setInitialTagLabels] = useState<string[]>([]);
   const [initialPhotos, setInitialPhotos] = useState<EditablePhoto[]>([]);
 
-  const { updateSpot } = useSpot(cityid);
+  const { updateSpot, deleteSpot, isPendingDeleteSpot } = useSpot(cityid);
   const { mutateAsync: createTags } = useCreateTag();
 
   const { data: spot, isLoading } = useQuery({
@@ -133,6 +129,25 @@ export default function SpotDetailScreen() {
     setIsEditing(false);
   };
 
+  const handleDeleteSpot = () => {
+    if (!spot) return;
+    Alert.alert("Delete spot", `Remove "${spot.name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteSpot(parseInt(spotid));
+            router.back();
+          } catch {
+            Alert.alert("Error", "Could not delete spot. Please try again.");
+          }
+        },
+      },
+    ]);
+  };
+
   const handleRemovePhoto = (photo: EditablePhoto) => {
     setEditPhotos((prev) => prev.filter((p) => p.uri !== photo.uri));
     if (photo.id != null) {
@@ -177,13 +192,13 @@ export default function SpotDetailScreen() {
       await tagsSpotsApi.deleteSpotTags(parseInt(spotid));
       if (tagLabels.length > 0) {
         const createdTags = await createTags(
-          tagLabels.map((label) => ({ label }))
+          tagLabels.map((label) => ({ label })),
         );
         await tagsSpotsApi.createTagsSpots(
           createdTags.map((tag) => ({
             spot_id: parseInt(spotid),
             tag_id: tag.id,
-          }))
+          })),
         );
       }
 
@@ -208,9 +223,13 @@ export default function SpotDetailScreen() {
             const url = await uploadPhotoFromUri(
               parseInt(spotid),
               photo.uri,
-              index
+              index,
             );
-            newInserts.push({ spot_id: parseInt(spotid), url, position: index });
+            newInserts.push({
+              spot_id: parseInt(spotid),
+              url,
+              position: index,
+            });
           } catch {
             // skip photos that fail to upload
           }
@@ -225,7 +244,9 @@ export default function SpotDetailScreen() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["spot", spotid] });
-      await queryClient.invalidateQueries({ queryKey: ["spot_photos", spotid] });
+      await queryClient.invalidateQueries({
+        queryKey: ["spot_photos", spotid],
+      });
       await queryClient.invalidateQueries({ queryKey: ["spots", cityid] });
       setIsEditing(false);
     } catch {
@@ -257,7 +278,7 @@ export default function SpotDetailScreen() {
 
     Linking.canOpenURL(url).then((supported) => {
       Linking.openURL(
-        supported ? url : `https://maps.google.com/?q=${latitude},${longitude}`
+        supported ? url : `https://maps.google.com/?q=${latitude},${longitude}`,
       );
     });
   };
@@ -295,7 +316,9 @@ export default function SpotDetailScreen() {
     editPhotos.length !== initialPhotos.length ||
     editPhotos.some((photo, index) => {
       const original = initialPhotos[index];
-      return !original || original.id !== photo.id || original.uri !== photo.uri;
+      return (
+        !original || original.id !== photo.id || original.uri !== photo.uri
+      );
     });
   const hasChanges = isDirty || tagsChanged || photosChanged;
   const canSave = hasChanges && !isSubmitting;
@@ -308,35 +331,48 @@ export default function SpotDetailScreen() {
       >
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
           <TouchableOpacity onPress={cancelEdit} activeOpacity={0.7}>
-            <Text style={[styles.headerActionText, { color: theme.textSecondary }]}>
+            <Text
+              style={[styles.headerActionText, { color: theme.textSecondary }]}
+            >
               Cancel
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={handleSubmit(onSave)}
-            disabled={!canSave}
-            activeOpacity={0.85}
-            style={[
-              styles.saveButton,
-              {
-                backgroundColor: canSave ? theme.accent : theme.surfaceElevated,
-              },
-            ]}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color={theme.onAccent} />
-            ) : (
-              <Text
-                style={[
-                  styles.saveButtonText,
-                  { color: canSave ? theme.onAccent : theme.textMuted },
-                ]}
-              >
-                Save
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={handleSubmit(onSave)}
+              disabled={!canSave}
+              activeOpacity={0.85}
+              style={[
+                styles.saveButton,
+                {
+                  backgroundColor: canSave
+                    ? theme.accent
+                    : theme.surfaceElevated,
+                },
+              ]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color={theme.onAccent} />
+              ) : (
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    { color: canSave ? theme.onAccent : theme.textMuted },
+                  ]}
+                >
+                  Save
+                </Text>
+              )}
+            </TouchableOpacity>
+            <IconButton
+              icon="delete"
+              onPress={handleDeleteSpot}
+              accessibilityLabel="Delete spot"
+              color={theme.error}
+              disabled={isPendingDeleteSpot || isSubmitting}
+            />
+          </View>
         </View>
 
         <KeyboardAvoidingView
@@ -344,9 +380,10 @@ export default function SpotDetailScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <ScrollView
-            contentContainerStyle={editContentStyle}
+            contentContainerStyle={styles.editContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            alwaysBounceVertical={false}
           >
             {/* Name — rendered as the screen title */}
             <View style={styles.field}>
@@ -420,7 +457,11 @@ export default function SpotDetailScreen() {
 
             {/* Tags */}
             <View style={styles.field}>
-              <TagPicker value={tagLabels} onChange={setTagLabels} theme={theme} />
+              <TagPicker
+                value={tagLabels}
+                onChange={setTagLabels}
+                theme={theme}
+              />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -451,7 +492,10 @@ export default function SpotDetailScreen() {
             />
           ) : (
             <View
-              style={[styles.heroImage, { backgroundColor: theme.surfaceElevated }]}
+              style={[
+                styles.heroImage,
+                { backgroundColor: theme.surfaceElevated },
+              ]}
             />
           )}
         </View>
@@ -460,7 +504,11 @@ export default function SpotDetailScreen() {
         <View style={[styles.sheet, { backgroundColor: theme.background }]}>
           <View style={styles.titleRow}>
             <Text
-              style={[Typography.heading1, styles.titleText, { color: theme.text }]}
+              style={[
+                Typography.heading1,
+                styles.titleText,
+                { color: theme.text },
+              ]}
             >
               {spot.name}
             </Text>
@@ -491,7 +539,11 @@ export default function SpotDetailScreen() {
                 style={styles.addressIcon}
               />
               <Text
-                style={[Typography.secondary, styles.addressText, { color: theme.textSecondary }]}
+                style={[
+                  Typography.secondary,
+                  styles.addressText,
+                  { color: theme.textSecondary },
+                ]}
               >
                 {spot.address}
               </Text>
@@ -505,7 +557,9 @@ export default function SpotDetailScreen() {
           ) : null}
 
           {spot.notes ? (
-            <Text style={[Typography.body, styles.notes, { color: theme.text }]}>
+            <Text
+              style={[Typography.body, styles.notes, { color: theme.text }]}
+            >
               {spot.notes}
             </Text>
           ) : null}
@@ -515,7 +569,10 @@ export default function SpotDetailScreen() {
               {tags.map((tag) => (
                 <View
                   key={tag.id}
-                  style={[styles.tagPill, { backgroundColor: theme.ochreSubtle }]}
+                  style={[
+                    styles.tagPill,
+                    { backgroundColor: theme.ochreSubtle },
+                  ]}
                 >
                   <TagGlyph
                     resolved={resolveTagIcon(tag)}
@@ -597,6 +654,11 @@ const styles = StyleSheet.create({
   headerActionText: {
     fontFamily: FontFamily.medium,
     fontSize: 16,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.space2,
   },
   saveButton: {
     borderRadius: Radius.full,

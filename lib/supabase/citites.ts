@@ -38,6 +38,23 @@ const citiesApi = {
     return data as City;
   },
 
+  updateCity: async ({
+    cityId,
+    updates,
+  }: {
+    cityId: number;
+    updates: Partial<Omit<City, "id" | "created_at">>;
+  }): Promise<City> => {
+    const { data, error } = await supabase
+      .from("cities")
+      .update(updates)
+      .eq("id", cityId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as City;
+  },
+
   deleteCity: async (cityId: number): Promise<City> => {
     const { data, error } = await supabase
       .from("cities")

@@ -7,7 +7,7 @@ import { CitySelectField } from "@/components/ui/CitySelectField";
 import { Input } from "@/components/ui/Input";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { useBottomTabOverflow } from "@/components/ui/TabBarBackground";
-import { Colors, Palette } from "@/constants/Colors";
+import { Colors } from "@/constants/Colors";
 import { Radius, Spacing } from "@/constants/Theme";
 import { FontFamily, Typography } from "@/constants/Typography";
 import { useCities } from "@/hooks/useCities";
@@ -25,7 +25,7 @@ import { tagsSpotsApi } from "@/lib/supabase/tags_spots";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Link2, RotateCcw } from "lucide-react-native";
+import { Check, Link2, RotateCcw } from "lucide-react-native";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -81,6 +81,7 @@ export default function CreateSpotScreen() {
   );
   const [importedPhotos, setImportedPhotos] = useState<string[]>([]);
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const [isImportComplete, setIsImportComplete] = useState(false);
 
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -106,7 +107,15 @@ export default function CreateSpotScreen() {
   });
 
   const selectedCityId = watch("cityId");
+  const name = watch("name");
+  const address = watch("address");
   const { createSpot } = useSpot(selectedCityId ? String(selectedCityId) : "");
+
+  const showNotesAndTags = activeTab === "manual" || isImportComplete;
+  const canSave =
+    activeTab === "manual"
+      ? Boolean(name.trim() && address.trim())
+      : isImportComplete;
 
   // Rendered inside each tab view; all instances share the same form field, so
   // a selected city persists when switching between Manual and Import.
@@ -136,6 +145,7 @@ export default function CreateSpotScreen() {
     setImportedName(spot.name);
     setImportedAddress(spot.address);
     setImportedPhotos(photos);
+    setIsImportComplete(Boolean(spot.name) && photos.length > 0);
 
     // Google's formattedAddress usually contains the local city name (e.g.
     // "…, 1060 Wien, Austria"). If the user hasn't picked a city yet, try to
@@ -155,6 +165,7 @@ export default function CreateSpotScreen() {
     setImportedName(undefined);
     setImportedAddress(undefined);
     setImportedPhotos([]);
+    setIsImportComplete(false);
     setValue("name", "", { shouldValidate: false });
     setValue("address", "", { shouldValidate: false });
     setValue("latitude", 0);
@@ -230,7 +241,33 @@ export default function CreateSpotScreen() {
         <Text style={[styles.headerTitle, { color: theme.text }]}>
           Add Spot
         </Text>
-        <View style={styles.headerRight} />
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={[
+              styles.headerButton,
+              {
+                backgroundColor: canSave
+                  ? theme.accent
+                  : theme.surfaceElevated,
+              },
+            ]}
+            onPress={handleSubmit(onSubmit)}
+            disabled={!canSave || isSubmitting}
+            activeOpacity={0.8}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Save spot"
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color={theme.onAccent} />
+            ) : (
+              <Check
+                size={20}
+                color={canSave ? theme.onAccent : theme.textMuted}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -413,54 +450,36 @@ export default function CreateSpotScreen() {
             </>
           )}
 
-          {/* Notes */}
-          <View style={styles.field}>
-            <Controller
-              control={control}
-              name="notes"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  label="Notes"
-                  placeholder="What made this place special?"
-                  value={value ?? ""}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  multiline
-                  numberOfLines={3}
-                  returnKeyType="done"
+          {showNotesAndTags ? (
+            <>
+              <View style={styles.field}>
+                <Controller
+                  control={control}
+                  name="notes"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <Input
+                      label="Notes"
+                      placeholder="What made this place special?"
+                      value={value ?? ""}
+                      onChangeText={onChange}
+                      onBlur={onBlur}
+                      multiline
+                      numberOfLines={3}
+                      returnKeyType="done"
+                    />
+                  )}
                 />
-              )}
-            />
-          </View>
+              </View>
 
-          {/* Tags */}
-          <View style={styles.field}>
-            <TagPicker
-              value={tagLabels}
-              onChange={setTagLabels}
-              theme={theme}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.saveButton,
-              {
-                backgroundColor: isSubmitting ? theme.border : theme.accent,
-              },
-            ]}
-            onPress={handleSubmit(onSubmit)}
-            disabled={isSubmitting}
-            activeOpacity={0.85}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={[Typography.button, styles.saveButtonText]}>
-                Save spot
-              </Text>
-            )}
-          </TouchableOpacity>
+              <View style={styles.field}>
+                <TagPicker
+                  value={tagLabels}
+                  onChange={setTagLabels}
+                  theme={theme}
+                />
+              </View>
+            </>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -491,6 +510,14 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     width: 64,
+    alignItems: "flex-end",
+  },
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -547,14 +574,5 @@ const styles = StyleSheet.create({
   },
   importedAddress: {
     ...Typography.secondary,
-  },
-  saveButton: {
-    marginTop: Spacing.space4,
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  saveButtonText: {
-    color: Palette.paper100,
   },
 });

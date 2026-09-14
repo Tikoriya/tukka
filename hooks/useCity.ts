@@ -23,6 +23,18 @@ export function useCity(cityId: string) {
       queryClient.invalidateQueries({ queryKey: ["cities"] });
     },
   });
+
+  const { mutateAsync: mutateUpdateCity, isPending: isPendingUpdateCity } =
+    useMutation({
+      mutationFn: citiesApi.updateCity,
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["cities"] });
+        queryClient.invalidateQueries({ queryKey: ["city", cityId] });
+      },
+      onError: (updateError) => {
+        console.error("Error updating city:", updateError);
+      },
+    });
     
     return {
         city: data,
@@ -31,5 +43,7 @@ export function useCity(cityId: string) {
         refetchCity: refetch,
         deleteCity: mutateDeleteCity,
         isPendingDeleteCity,
+        updateCity: mutateUpdateCity,
+        isPendingUpdateCity,
     };
 }

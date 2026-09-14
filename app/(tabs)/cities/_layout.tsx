@@ -9,6 +9,7 @@ export default function CitiesStackLayout() {
         options={{ headerShown: false, title: "Cities" }}
       />
       <Stack.Screen name="create" options={{ headerShown: false }} />
+      <Stack.Screen name="edit" options={{ headerShown: false }} />
       <Stack.Screen name="create-spot" options={{ headerShown: false }} />
       <Stack.Screen
         name="label"

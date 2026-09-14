@@ -1,3 +1,6 @@
+import { deletePhotosFromStorage } from "@/lib/services/photoUpload";
+import { spotPhotosApi } from "@/lib/supabase/spot_photos";
+import { tagsSpotsApi } from "@/lib/supabase/tags_spots";
 import { NewSpot, Spot, SpotWithTags } from "@/types";
 import { supabase } from "@/utils/supabase";
 
@@ -105,6 +108,11 @@ export const spotsApi = {
     },
 
     deleteSpot: async (spotId: number): Promise<Spot> => {
+        const photos = await spotPhotosApi.fetchForSpot(spotId);
+        await tagsSpotsApi.deleteSpotTags(spotId);
+        await spotPhotosApi.deleteForSpot(spotId);
+        await deletePhotosFromStorage(photos.map((photo) => photo.url));
+
         const { data, error } = await supabase
         .from("spots")
         .delete()
@@ -113,7 +121,7 @@ export const spotsApi = {
         .single()
 
         if (error) throw error;
-        return data || [];
+        return data;
     }
   // ...other spot API methods
 };

@@ -207,13 +207,15 @@ export default function CityScreen() {
         >
           {cityName ?? "City"}
         </Text>
-        {!isOnboarding ? (
-          <View style={styles.actions}>
-            <IconButton
-              icon="map"
-              onPress={() => console.log("map pressed")}
-              accessibilityLabel="View on map"
-            />
+        <View style={styles.actions}>
+          {/* Map view for a city is not implemented yet
+          <IconButton
+            icon="map"
+            onPress={() => console.log("map pressed")}
+            accessibilityLabel="View on map"
+          />
+          */}
+          {!isOnboarding ? (
             <IconButton
               icon="filter"
               onPress={toggleFilters}
@@ -221,19 +223,24 @@ export default function CityScreen() {
               background={showFilters ? theme.accent : undefined}
               color={showFilters ? Palette.paper100 : undefined}
             />
-            <IconButton
-              icon="edit"
-              onPress={() => console.log("edit pressed")}
-              accessibilityLabel="Edit city"
-            />
-            <IconButton
-              icon="delete"
-              onPress={handleDeleteCity}
-              accessibilityLabel="Delete city"
-              color={theme.error}
-            />
-          </View>
-        ) : null}
+          ) : null}
+          <IconButton
+            icon="edit"
+            onPress={() =>
+              router.push({
+                pathname: "/cities/edit",
+                params: { cityid, ...(cityName ? { cityName } : {}) },
+              })
+            }
+            accessibilityLabel="Edit city"
+          />
+          <IconButton
+            icon="delete"
+            onPress={handleDeleteCity}
+            accessibilityLabel="Delete city"
+            color={theme.error}
+          />
+        </View>
       </View>
 
       {/* Collapsed filter bar */}
