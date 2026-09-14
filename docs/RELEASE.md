@@ -50,15 +50,18 @@ At the repo root:
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "development"
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
       "ios": { "simulator": false },
       "android": { "buildType": "apk" }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "environment": "production"
     }
   },
   "submit": {
@@ -106,6 +109,30 @@ Add to `.gitignore`:
 ```
 play-service-account.json
 ```
+
+### 1.7 Set EAS environment variables
+
+`.env` is gitignored, so EAS cloud builds never see it. Without these values the JS bundle throws on launch and Android testers see an instant crash.
+
+Push the public app keys from your local `.env` into every EAS environment the build profiles use:
+
+```bash
+# production ← production profile (Play / TestFlight)
+# preview    ← preview APK/IPA install links
+# development ← EAS dev clients
+eas env:push --path .env --environment production --force
+eas env:push --path .env --environment preview --force
+eas env:push --path .env --environment development --force
+```
+
+Confirm they landed:
+
+```bash
+eas env:list production
+eas env:list preview
+```
+
+Required for the app to boot: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Optional: `EXPO_PUBLIC_GOOGLE_PLACES_API_KEY`, `EXPO_PUBLIC_UNSPLASH_ACCESS_KEY`. Do not put `EXPO_PUBLIC_DEV_EMAIL` / `EXPO_PUBLIC_DEV_PASSWORD` on `production` or `preview`.
 
 ---
 
@@ -297,6 +324,7 @@ Android has no equivalent problem — Play Internal Testing has no review. `npm 
 
 | Symptom                                                   | Fix                                                                                                                |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Android install from the tester link opens then closes    | The release bundle is missing `EXPO_PUBLIC_SUPABASE_*`. Run `eas env:list production` — if empty, follow §1.7, then rebuild and resubmit. |
 | `eas submit` iOS asks for password every time             | Save the app-specific password in your login keychain or set `EXPO_APPLE_APP_SPECIFIC_PASSWORD` in your shell env. |
 | Play Console rejects the AAB: "Version code already used" | Ensure `autoIncrement: true` is set in the `production` profile in `eas.json` and versioning is `remote`.          |
 | iOS build fails on credentials                            | Run `eas credentials` and let EAS regenerate the certificate + provisioning profile.                               |
