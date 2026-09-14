@@ -255,7 +255,8 @@ ${pageText.slice(0, 2000)}`;
   );
 
   if (!res.ok) {
-    throw new Error(`Gemini API error: ${res.status}`);
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Gemini API error: ${res.status} ${detail}`);
   }
 
   const data = await res.json();
@@ -337,7 +338,8 @@ If no real-world place can be identified, return:
   );
 
   if (!res.ok) {
-    throw new Error(`Gemini Vision API error: ${res.status}`);
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Gemini Vision API error: ${res.status} ${detail}`);
   }
 
   const data = await res.json();
@@ -385,7 +387,10 @@ async function resolveWithPlaces(
   );
 
   if (!res.ok) {
-    throw new Error(`Places API error: ${res.status}`);
+    // Google puts the actionable reason (key restrictions, disabled API, bad field
+    // mask) in the body, not the status — surface it or the failure is undiagnosable.
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Places API error: ${res.status} ${detail}`);
   }
 
   const data = await res.json();
